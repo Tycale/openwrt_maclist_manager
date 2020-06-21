@@ -1,0 +1,3 @@
+[submodule "goubus"]
+	path = goubus
+	url = git@github.com:Tycale/goubus.git

@@ -1,4 +1,10 @@
 ubus_user: root
 ubus_password: toor
+ssids:
+        - WiFi-5.0-B88B
+        - WiFi-2.4-B88B
 devices:
         - 192.168.2.1
+allowed_macs:
+        # s8
+        - 30:07:4D:72:77:AE
