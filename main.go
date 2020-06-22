@@ -202,6 +202,7 @@ func updateMacs(device string, c *conf) {
 
 		setMacList(&ubus, uIface, c.AllowedMacs)
 		commitAndReloadWireless(&ubus)
+		log.Println("Applied!")
 	}
 
 }
