@@ -9,6 +9,9 @@ import (
 
 	"./config"
 	"./goubus"
+
+	"github.com/fatih/color"
+	"github.com/manifoldco/promptui"
 )
 
 type conf struct {
@@ -17,9 +20,27 @@ type conf struct {
 	AllowedMacs []string
 	User        string
 	Password    string
+	ForceYes    bool
 }
 
-func filterIfaces(ubus goubus.Ubus, uwd goubus.UbusWirelessDevice, ssids []string) []string {
+var red = color.New(color.FgRed).SprintFunc()
+var green = color.New(color.FgGreen).SprintFunc()
+var yellow = color.New(color.FgYellow).SprintFunc()
+
+// https://stackoverflow.com/questions/55176623/how-to-ask-yes-or-no-using-golang
+func yesNo(question string) bool {
+	prompt := promptui.Select{
+		Label: question + " [Yes/No]",
+		Items: []string{"Yes", "No"},
+	}
+	_, result, err := prompt.Run()
+	if err != nil {
+		log.Fatalf("Prompt failed %v\n", err)
+	}
+	return result == "Yes"
+}
+
+func filterIfaces(ubus *goubus.Ubus, uwd *goubus.UbusWirelessDevice, ssids []string) []string {
 	selectedIfaces := []string{}
 
 	for _, s := range uwd.Devices {
@@ -44,7 +65,10 @@ func loadConfig() conf {
 	c := conf{}
 
 	flag.StringVar(&configF, "config", "settings.yml", "yaml file used for settings")
+	flag.BoolVar(&c.ForceYes, "yes", false, "Don't ask before apply")
 	flag.Parse()
+
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	config.Load(configF)
 	c.SSIDs = config.GetStringSlice("ssids")
@@ -56,7 +80,7 @@ func loadConfig() conf {
 	return c
 }
 
-func setUbusAuth(ubus *goubus.Ubus, c conf) {
+func setUbusAuth(ubus *goubus.Ubus, c *conf) {
 	ubus.Username = c.User
 	ubus.Password = c.Password
 }
@@ -66,12 +90,12 @@ func main() {
 	c := loadConfig()
 
 	for _, d := range c.Devices {
-		log.Println("------ Updating " + d + " ------")
-		updateMacs(d, c)
+		log.Println("------ Actions on " + d + " ------")
+		updateMacs(d, &c)
 	}
 }
 
-func checkWifisExist(ubus goubus.Ubus, c conf) int {
+func checkWifisExist(ubus *goubus.Ubus, c *conf) int {
 	// Find setup wifis
 	d, err := ubus.WirelessDevices(0)
 	if err != nil {
@@ -80,7 +104,7 @@ func checkWifisExist(ubus goubus.Ubus, c conf) int {
 
 	// Filter out wifi
 	numWifiFound := len(d.Devices)
-	selIfaces := filterIfaces(ubus, d, c.SSIDs)
+	selIfaces := filterIfaces(ubus, &d, c.SSIDs)
 	numFilteredWifi := len(selIfaces)
 
 	// log Results
@@ -89,7 +113,7 @@ func checkWifisExist(ubus goubus.Ubus, c conf) int {
 	return numFilteredWifi
 }
 
-func findUciWifiSection(ubus goubus.Ubus, c conf, numWifis int) []int {
+func findUciWifiSection(ubus *goubus.Ubus, c *conf, numWifis int) []int {
 
 	selIfaces := []int{}
 
@@ -110,12 +134,15 @@ func findUciWifiSection(ubus goubus.Ubus, c conf, numWifis int) []int {
 		}
 
 		// 2/2. Execute
-		res, err := ubus.UciGetConfig(0, uciReq)
+		res, eerr := ubus.UciGetConfig(0, uciReq)
+		if eerr != nil {
+			log.Fatal(eerr)
+		}
 
 		for i, s := range c.SSIDs {
 			if s == res.Value {
 				selIfaces = append(selIfaces, i)
-				log.Println("Found '" + s + "' SSID in UCI as 'wireless.@wifi-iface[" + strconv.Itoa(i) + "]'.")
+				log.Println("Found '" + yellow(s) + "' SSID in UCI as 'wireless.@wifi-iface[" + yellow(strconv.Itoa(i)) + "]'.")
 			}
 		}
 	}
@@ -123,7 +150,7 @@ func findUciWifiSection(ubus goubus.Ubus, c conf, numWifis int) []int {
 	return selIfaces
 }
 
-func updateMacs(device string, c conf) {
+func updateMacs(device string, c *conf) {
 
 	ubus := goubus.Ubus{
 		URL: "http://" + device + "/ubus",
@@ -137,27 +164,86 @@ func updateMacs(device string, c conf) {
 		log.Fatal(err)
 	}
 
-	numWifis := checkWifisExist(ubus, c)
+	numWifis := checkWifisExist(&ubus, c)
 
 	if numWifis == 0 {
 		log.Fatal("Could not find any wifi to configure on this device.")
 	}
 
-	uciIfaces := findUciWifiSection(ubus, c, numWifis)
+	uciIfaces := findUciWifiSection(&ubus, c, numWifis)
 
 	if len(uciIfaces) != numWifis {
 		log.Fatal("UCI does not reflex ubus infos, abort.")
 	}
 
 	for _, uIface := range uciIfaces {
-		toDelMacs, toAddMacs := listDelAddMacs(ubus, c, uIface)
-		log.Println(toDelMacs)
-		log.Println(toAddMacs)
+		toDelMacs, toAddMacs := listDelAddMacs(&ubus, c, uIface)
+
+		if len(toDelMacs)+len(toAddMacs) == 0 {
+			log.Print("No action will be performed @wifi-iface[", yellow(uIface), "], already up-to-date !")
+			continue
+		}
+
+		log.Print("Following action will be performed @wifi-iface[", yellow(uIface), "]")
+
+		for _, mac := range toDelMacs {
+			log.Print("Will be removed : ", red(mac))
+		}
+
+		for _, mac := range toAddMacs {
+			log.Print("Will be added : ", green(mac))
+		}
+
+		if !c.ForceYes {
+			if !yesNo("Apply ?") {
+				continue
+			}
+		}
+
+		setMacList(&ubus, uIface, c.AllowedMacs)
+		commitAndReloadWireless(&ubus)
 	}
 
 }
 
-func listDelAddMacs(ubus goubus.Ubus, c conf, iface int) ([]string, []string) {
+func commitAndReloadWireless(ubus *goubus.Ubus) {
+	err := ubus.UciCommit(0, "wireless")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = ubus.UciReloadConfig(0)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func setMacList(ubus *goubus.Ubus, iface int, macs []string) {
+	var uciReq goubus.UbusUciRequestList
+
+	// 1/2. Marshal json request
+	err := json.Unmarshal([]byte(`
+			{
+							 "config": "wireless",
+							 "section": "@wifi-iface[`+strconv.Itoa(iface)+`]",
+							 "option": "maclist"
+			 }
+			 `), &uciReq)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// A bit easier to write than in the json directly..
+	uciReq.Values = map[string][]string{"maclist": macs}
+
+	// 2/2. Execute
+	err = ubus.UciSetConfig(0, uciReq)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func listDelAddMacs(ubus *goubus.Ubus, c *conf, iface int) ([]string, []string) {
 	var toDel []string
 	var toAdd []string
 
@@ -165,17 +251,16 @@ func listDelAddMacs(ubus goubus.Ubus, c conf, iface int) ([]string, []string) {
 	// 1/2. Marshal json request
 	var uciReq goubus.UbusUciRequest
 	err := json.Unmarshal([]byte(`
-	{
-		"config": "wireless",
-		"section": "@wifi-iface[`+strconv.Itoa(iface)+`]",
-		"option": "maclist"
-	}
-	`), &uciReq)
+			{
+							 "config": "wireless",
+							 "section": "@wifi-iface[`+strconv.Itoa(iface)+`]",
+							 "option": "maclist"
+			 }
+			 `), &uciReq)
 
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	// 2/2. Execute
 	macList, err := ubus.UciGetConfig(0, uciReq)
 
@@ -216,6 +301,5 @@ func listDelAddMacs(ubus goubus.Ubus, c conf, iface int) ([]string, []string) {
 			toAdd = append(toAdd, wm)
 		}
 	}
-
 	return toDel, toAdd
 }

@@ -5,6 +5,10 @@ ssids:
         - WiFi-2.4-B88B
 devices:
         - 192.168.2.1
+        - 192.168.2.102
+        - 192.168.2.103
 allowed_macs:
-        # s8
-        - 30:07:4D:72:77:AE
+        # My smartphone
+        - 30:07:4D:00:00:01
+        # Wife's smartphone
+        - 30:07:4D:00:00:02
