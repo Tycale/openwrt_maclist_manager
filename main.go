@@ -27,6 +27,15 @@ var red = color.New(color.FgRed).SprintFunc()
 var green = color.New(color.FgGreen).SprintFunc()
 var yellow = color.New(color.FgYellow).SprintFunc()
 
+func main() {
+	c := loadConfig()
+
+	for _, d := range c.Devices {
+		log.Println("------ Actions on " + d + " ------")
+		updateMacs(d, &c)
+	}
+}
+
 // https://stackoverflow.com/questions/55176623/how-to-ask-yes-or-no-using-golang
 func yesNo(question string) bool {
 	prompt := promptui.Select{
@@ -65,7 +74,7 @@ func loadConfig() conf {
 	c := conf{}
 
 	flag.StringVar(&configF, "config", "settings.yml", "yaml file used for settings")
-	flag.BoolVar(&c.ForceYes, "yes", false, "Don't ask before apply")
+	flag.BoolVar(&c.ForceYes, "yes", false, "Don't ask before each modification, apply directly")
 	flag.Parse()
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -83,16 +92,6 @@ func loadConfig() conf {
 func setUbusAuth(ubus *goubus.Ubus, c *conf) {
 	ubus.Username = c.User
 	ubus.Password = c.Password
-}
-
-func main() {
-
-	c := loadConfig()
-
-	for _, d := range c.Devices {
-		log.Println("------ Actions on " + d + " ------")
-		updateMacs(d, &c)
-	}
 }
 
 func checkWifisExist(ubus *goubus.Ubus, c *conf) int {
@@ -234,7 +233,7 @@ func setMacList(ubus *goubus.Ubus, iface int, macs []string) {
 		log.Fatal(err)
 	}
 
-	// A bit easier to write than in the json directly..
+	// A bit easier to write than in the json..
 	uciReq.Values = map[string][]string{"maclist": macs}
 
 	// 2/2. Execute
