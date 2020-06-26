@@ -2,9 +2,9 @@
 
 Wifi 802.11r (fast roaming) allows fast transition betweens multiple access
 points. However, if you want to have a blocklist/allowlist with OpenWRT, you
-will have to define the maclist on each device. This tool permits to ease this
-task by managing the maclist option on multiple devices via ubus request over
-JSON-RPC request.
+will have to define the maclist on each device. This tool eases this task by
+managing the maclist option on multiple devices via ubus request over JSON-RPC
+request.
 
 ## Getting Started
 
