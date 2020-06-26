@@ -1,24 +1,23 @@
 # OpenWRT (OpenLEDE) mac list manager
 
 Wifi 802.11r (fast roaming) allows fast transition betweens multiple access
-points. However, if you want to have a blocklist with OpenWRT and 802.11r, you
-have to define the maclist on each device which is annoying if you have a lot
-of devices. This tool permits to ease this task by managing the maclist option
-on multiple devices via ubus over JSON-RPC requests..
+points. However, if you want to have a blocklist/allowlist with OpenWRT, you
+will have to define the maclist on each device. This tool permits to ease this
+task by managing the maclist option on multiple devices via ubus request over
+JSON-RPC request.
 
 ## Getting Started
 
-Create your own settings.yml, an example is available : settings.yml.sample
-
 ### Prerequisites
 
-In order to have the JSON-RPC enable on OpenWRT, install the following packages:
+In order to be able to do JSON-RPC request on OpenWRT, install the following packages:
 
  * uhttpd-mod-ubus
  * rpcd
  * ubus
 
-Once installed, configure the user authentification:
+Once installed, check/configure the user authentification.  By default, a user
+"root" with the system password of the user root should exist:
 
 ```
 root@routeur:~# cat /etc/config/rpcd
@@ -33,11 +32,9 @@ config login
 	list write '*'
 ```
 
-By default, a user "root" with the system password of the user root should exist.
-
-Then, you have to grant extra permissions to "rpcd" in order to manage
-configurations file and request wifi informations. For doing this, you have to
-modify the file "/usr/share/rpcd/acl.d/luci-base.json", here is mine:
+Then, you have to grant extra permissions in order to manage configurations
+file, request wifi informations, etc. For doing this, you have to modify the
+file "/usr/share/rpcd/acl.d/luci-base.json", here is mine:
 
 ```
 root@mother-router:~# cat /usr/share/rpcd/acl.d/luci-base.json
@@ -166,9 +163,11 @@ go build
 
 ### Action !
 
+Create your own settings.yml (see settings.yml.sample) and launch ! 
+
 ![Example](demo.png "Example")
 
 ### Tips
 
-Use multiple configurations file to handle multiple maclist.
+Use multiple configuration files to handle multiple maclist.
 
