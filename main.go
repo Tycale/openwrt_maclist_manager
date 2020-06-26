@@ -15,12 +15,13 @@ import (
 )
 
 type conf struct {
-	Devices     []string
-	SSIDs       []string
-	AllowedMacs []string
-	User        string
-	Password    string
-	ForceYes    bool
+	Devices      []string
+	SSIDs        []string
+	AllowedMacs  []string
+	FilterOption string
+	User         string
+	Password     string
+	ForceYes     bool
 }
 
 var red = color.New(color.FgRed).SprintFunc()
@@ -83,6 +84,7 @@ func loadConfig() conf {
 	c.SSIDs = config.GetStringSlice("ssids")
 	c.AllowedMacs = config.GetStringSlice("allowed_macs")
 	c.Devices = config.GetStringSlice("devices")
+	c.FilterOption = config.GetFilterOption()
 	c.User = config.GetUser()
 	c.Password = config.GetPass()
 
@@ -199,6 +201,7 @@ func updateMacs(device string, c *conf) {
 			}
 		}
 
+		setMacFilter(&ubus, uIface, c.FilterOption)
 		setMacList(&ubus, uIface, c.AllowedMacs)
 		commitAndReloadWireless(&ubus)
 		log.Println("Applied!")
@@ -212,6 +215,30 @@ func commitAndReloadWireless(ubus *goubus.Ubus) {
 		log.Fatal(err)
 	}
 	err = ubus.UciReloadConfig(0)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func setMacFilter(ubus *goubus.Ubus, iface int, value string) {
+	var uciReq goubus.UbusUciRequest
+
+	// 1/2. Marshal json request
+	err := json.Unmarshal([]byte(`
+			{
+							 "config": "wireless",
+							 "section": "@wifi-iface[`+strconv.Itoa(iface)+`]",
+							 "option": "macfilter",
+							 "values": {"macfilter": "`+value+`"}
+			 }
+			 `), &uciReq)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// 2/2. Execute
+	err = ubus.UciSetConfig(0, uciReq)
 	if err != nil {
 		log.Fatal(err)
 	}

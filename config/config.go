@@ -35,6 +35,17 @@ func GetPass() string {
 	return password
 }
 
+func GetFilterOption() string {
+	o := viper.GetString("filter_option")
+	if o == "" {
+		panic(fmt.Errorf("Fatal error config file does not contain filter_option\n"))
+	}
+	if o != "allow" && o != "deny" {
+		panic(fmt.Errorf("Fatal error config filter_option must be either 'allow' or 'deny'\n"))
+	}
+	return o
+}
+
 func GetStringSlice(s string) []string {
 	res := viper.GetStringSlice(s)
 	if len(res) == 0 {

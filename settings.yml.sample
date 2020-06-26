@@ -1,5 +1,6 @@
 ubus_user: root
 ubus_password: toor
+filter_option: allow
 ssids:
         - WiFi-5.0-B88B
         - WiFi-2.4-B88B
