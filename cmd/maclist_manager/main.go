@@ -7,8 +7,8 @@ import (
 	"log"
 	"strconv"
 
+	"../../goubus"
 	"./config"
-	"./goubus"
 
 	"github.com/fatih/color"
 	"github.com/manifoldco/promptui"
