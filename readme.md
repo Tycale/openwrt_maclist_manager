@@ -157,8 +157,8 @@ root@mother-router:~# cat /usr/share/rpcd/acl.d/luci-base.json
 
 ```
 go get
-go build
-./wrt_mac_manager --help
+make
+./bin/maclist_manager/maclist_manager --help
 ```
 
 ### Action !
@@ -171,3 +171,21 @@ Create your own settings.yml (see settings.yml.sample) and launch !
 
 Use multiple configuration files to handle multiple maclist.
 
+# OpenWRT (OpenLEDE) mac ethers
+
+Create an ethers file (/etc/ethers) from a list of routeurs by reading static
+leases configuration file from UCI (host sections). Idea behind is to populate
+this generated file to multiple OpenWRT routers in order to have a name instead
+of a MAC address on the status page.
+
+## Getting Started
+
+Same as the OpenWRT (OpenLEDE) mac list manager
+
+### Installing
+
+```
+go get
+make
+./bin/mac_ethers/mac_ethers --help
+```
