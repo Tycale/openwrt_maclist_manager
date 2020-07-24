@@ -37,6 +37,12 @@ func main() {
 	}
 }
 
+func check(e error) {
+	if e != nil {
+		log.Fatal(e)
+	}
+}
+
 // https://stackoverflow.com/questions/55176623/how-to-ask-yes-or-no-using-golang
 func yesNo(question string) bool {
 	prompt := promptui.Select{
@@ -56,9 +62,7 @@ func filterIfaces(ubus *goubus.Ubus, uwd *goubus.UbusWirelessDevice, ssids []str
 	for _, s := range uwd.Devices {
 		info, err := ubus.WirelessInfo(0, s)
 
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 
 		for _, ssid := range ssids {
 			if ssid == info.SSID {
@@ -99,9 +103,7 @@ func setUbusAuth(ubus *goubus.Ubus, c *conf) {
 func checkWifisExist(ubus *goubus.Ubus, c *conf) int {
 	// Find setup wifis
 	d, err := ubus.WirelessDevices(0)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 
 	// Filter out wifi
 	numWifiFound := len(d.Devices)
@@ -130,15 +132,11 @@ func findUciWifiSection(ubus *goubus.Ubus, c *conf, numWifis int) []int {
 		}
 		`), &uciReq)
 
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 
 		// 2/2. Execute
 		res, eerr := ubus.UciGetConfig(0, uciReq)
-		if eerr != nil {
-			log.Fatal(eerr)
-		}
+		check(eerr)
 
 		for i, s := range c.SSIDs {
 			if s == res.Value {
@@ -161,9 +159,7 @@ func updateMacs(device string, c *conf) {
 
 	// Auth
 	_, err := ubus.AuthLogin()
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 
 	numWifis := checkWifisExist(&ubus, c)
 
@@ -211,13 +207,9 @@ func updateMacs(device string, c *conf) {
 
 func commitAndReloadWireless(ubus *goubus.Ubus) {
 	err := ubus.UciCommit(0, "wireless")
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 	err = ubus.UciReloadConfig(0)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 }
 
 func setMacFilter(ubus *goubus.Ubus, iface int, value string) {
@@ -233,15 +225,11 @@ func setMacFilter(ubus *goubus.Ubus, iface int, value string) {
 			 }
 			 `), &uciReq)
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 
 	// 2/2. Execute
 	err = ubus.UciSetConfig(0, uciReq)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 }
 
 func setMacList(ubus *goubus.Ubus, iface int, macs []string) {
@@ -256,18 +244,14 @@ func setMacList(ubus *goubus.Ubus, iface int, macs []string) {
 			 }
 			 `), &uciReq)
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 
 	// A bit easier to write than in the json..
 	uciReq.Values = map[string][]string{"maclist": macs}
 
 	// 2/2. Execute
 	err = ubus.UciSetConfig(0, uciReq)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 }
 
 func listDelAddMacs(ubus *goubus.Ubus, c *conf, iface int) ([]string, []string) {
@@ -285,9 +269,7 @@ func listDelAddMacs(ubus *goubus.Ubus, c *conf, iface int) ([]string, []string) 
 			 }
 			 `), &uciReq)
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 	// 2/2. Execute
 	macList, err := ubus.UciGetConfig(0, uciReq)
 
